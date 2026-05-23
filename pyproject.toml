@@ -47,7 +47,7 @@ dev = [
 [project.urls]
 Homepage = "https://jubbio.com"
 Documentation = "https://jubbio.com/dev/docs"
-Repository = "https://github.com/jubbio/jubbio.py"
+Repository = "https://github.com/JubbioPythonDev/jubbio.py"
 
 [tool.setuptools.packages.find]
 include = ["jubbio*"]
