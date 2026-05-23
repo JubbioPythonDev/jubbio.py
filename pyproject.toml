@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jubbio.py"
+version = "1.0.3"
+description = "Jubbio Bot API için Python kütüphanesi"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Jubbio Community"}
+]
+keywords = ["jubbio", "bot", "api", "chat", "discord-alternative"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Topic :: Communications :: Chat",
+    "Framework :: AsyncIO",
+]
+dependencies = [
+    "aiohttp>=3.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "black",
+    "ruff",
+]
+
+[project.urls]
+Homepage = "https://jubbio.com"
+Documentation = "https://jubbio.com/dev/docs"
+Repository = "https://github.com/jubbio/jubbio.py"
+
+[tool.setuptools.packages.find]
+include = ["jubbio*"]

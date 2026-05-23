@@ -1,0 +1,166 @@
+# jubbio.py
+
+Jubbio platformu için Python bot kütüphanesi. Discord.py benzeri bir API ile Jubbio botları oluşturmanızı sağlar.
+
+> **Not:** Bu kütüphane Jubbio'nun resmi bir ürünü değildir. Topluluk tarafından geliştirilmiş bağımsız bir projedir. API değişiklikleri nedeniyle bazı özellikler çalışmayabilir.
+
+## Kurulum
+
+```bash
+pip install jubbio.py
+```
+
+Kaynak koddan:
+
+```bash
+git clone https://github.com/jubbio/jubbio.py
+cd jubbio.py
+pip install -e .
+```
+
+## Hızlı Başlangıç
+
+```python
+import jubbio
+
+client = jubbio.Client()
+
+@client.event
+async def on_ready():
+    print(f'{client.user} olarak giriş yapıldı')
+
+@client.event
+async def on_message(message):
+    if message.content == '!ping':
+        await message.channel.send('Pong!')
+
+    elif message.content == '!merhaba':
+        await message.reply(f'Merhaba {message.author.mention}')
+
+client.run('BOT_TOKEN_BURAYA')
+```
+
+## Slash Komutlar
+
+```python
+import jubbio
+
+client = jubbio.Client()
+
+@client.event
+async def on_ready():
+    cmd = jubbio.SlashCommand(
+        name='bilgi',
+        description='Kullanıcı bilgilerini gösterir',
+        options=[
+            jubbio.SlashCommandOption(
+                name='kullanici',
+                description='Bilgileri gösterilecek kullanıcı',
+                type=jubbio.CommandOptionType.USER,
+                required=False
+            )
+        ]
+    )
+    await client.register_command(cmd, guild_id='SUNUCU_ID')
+
+@client.command(name='bilgi')
+async def bilgi(interaction):
+    user = interaction.user
+    embed = jubbio.Embed(
+        title=user.display_name,
+        description='Kullanıcı bilgileri',
+        color=jubbio.Color.purple()
+    )
+    embed.add_field(name='ID', value=user.id, inline=True)
+    embed.add_field(name='Kullanıcı Adı', value=user.username, inline=True)
+    await interaction.respond(embed=embed)
+
+client.run('BOT_TOKEN_BURAYA')
+```
+
+## Embed ve Butonlar
+
+```python
+@client.event
+async def on_message(message):
+    if message.content == '!menu':
+        embed = jubbio.Embed(
+            title='Oyun Menüsü',
+            description='Bir seçenek belirleyin:',
+            color=jubbio.Color.gold()
+        )
+
+        row = jubbio.ActionRow(
+            jubbio.Button(
+                style=jubbio.ButtonStyle.PRIMARY,
+                label='Başla',
+                custom_id='game_start'
+            ),
+            jubbio.Button(
+                style=jubbio.ButtonStyle.SECONDARY,
+                label='Kurallar',
+                custom_id='game_rules'
+            ),
+            jubbio.Button(
+                style=jubbio.ButtonStyle.LINK,
+                label='Web Sitesi',
+                url='https://jubbio.com'
+            )
+        )
+
+        await message.channel.send(embed=embed, components=[row])
+
+@client.component(custom_id='game_start')
+async def game_start(interaction):
+    await interaction.respond('Oyun başlıyor!', ephemeral=True)
+```
+
+## Özellikler
+
+- Async/await tabanlı (aiohttp)
+- Slash komut kayıt ve yönetimi
+- Buton, seçim menüsü ve action row desteği
+- Embed (zengin içerik kartı) desteği
+- Webhook oluşturma ve yönetimi
+- Ban, kick, timeout, rol yönetimi
+- WebSocket Gateway ile gerçek zamanlı olay dinleme
+- Otomatik yeniden bağlanma (exponential backoff)
+- Rate limit yönetimi
+
+## API Referansı
+
+### Client
+
+| Metot | Açıklama |
+|-------|----------|
+| `client.run(token)` | Botu başlatır |
+| `client.close()` | Botu kapatır |
+| `client.get_user(id)` | Kullanıcı bilgisi getirir |
+| `client.get_guild(id)` | Sunucu bilgisi getirir |
+| `client.send_dm(user_id, content)` | DM gönderir |
+| `client.register_command(cmd)` | Slash komut kaydeder |
+| `client.wait_until_ready()` | Bot hazır olana kadar bekler |
+
+### Olaylar
+
+| Olay | Açıklama |
+|------|----------|
+| `on_ready` | Bot hazır olduğunda |
+| `on_message(message)` | Yeni mesaj geldiğinde |
+| `on_interaction(interaction)` | Etkileşim olduğunda |
+| `on_guild_join(guild)` | Yeni sunucuya katılınca |
+| `on_guild_remove(guild)` | Sunucudan ayrılınca |
+| `on_member_ban(member)` | Üye yasaklanınca |
+| `on_member_unban(member)` | Yasak kaldırılınca |
+| `on_member_join(member)` | Üye katılınca |
+| `on_member_remove(member)` | Üye ayrılınca |
+| `on_invite_create(invite)` | Davet oluşturulunca |
+| `on_presence_update(data)` | Durum güncellenince |
+
+## Lisans
+
+MIT License
+
+## Feragat
+
+Bu kütüphane Jubbio ile resmi bir bağlantısı olmayan, topluluk tarafından geliştirilmiş bağımsız bir projedir. Jubbio'nun API'si üzerinde herhangi bir garanti verilmez. Kullanım riski size aittir.
