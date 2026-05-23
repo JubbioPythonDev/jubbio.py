@@ -146,5 +146,5 @@ async def onaylandi(interaction):
 ---
 
 <p align="center">
-  <i>Bu kütüphane bağımsız geliştiriciler tarafından oluşturulmuştur ve Jubbio Inc. ile doğrudan bağlantısı yoktur.</i>
+  <i>Bu kütüphane bağımsız geliştiriciler tarafından oluşturulmuştur ve Jubbio ile doğrudan bağlantısı yoktur.</i>
 </p>
