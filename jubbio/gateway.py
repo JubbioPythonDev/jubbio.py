@@ -60,9 +60,15 @@ class Gateway:
             await self._try_reconnect()
 
     async def _identify(self):
-        identify_data = {"token": self._token}
+        intents_value = 0
         if hasattr(self._client, "intents") and self._client.intents:
-            identify_data["intents"] = self._client.intents.value
+            intents_value = self._client.intents.value
+
+        identify_data = {
+            "token": f"Bot {self._token}",
+            "intents": intents_value,
+            "shard": [0, 1],
+        }
 
         await self._send({"op": 2, "d": identify_data})
 

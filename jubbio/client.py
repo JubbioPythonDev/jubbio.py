@@ -63,9 +63,13 @@ class Client:
         return decorator
 
     async def _handle_ready(self, data: dict):
-        user_data = data.get("user", data.get("bot", {}))
+        try:
+            user_data = await self._http.request("GET", "/users/@me")
+        except Exception:
+            user_data = data.get("user", data.get("bot", {}))
+            
         self.user = BotUser(user_data)
-        self.application_id = self.user.application_id
+        self.application_id = getattr(self.user, "application_id", None)
         self.guilds = [Guild(g, http=self._http) for g in data.get("guilds", [])]
         self._ready.set()
 
