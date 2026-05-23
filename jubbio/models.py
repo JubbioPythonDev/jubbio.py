@@ -85,7 +85,8 @@ class User:
         self.bot: bool = data.get("bot", False)
 
     def __str__(self):
-        return self.display_name or self.username
+        name = self.display_name or self.username
+        return name if name else f"Bot (ID: {self.id})" if self.bot else f"User (ID: {self.id})"
 
     def __repr__(self):
         return f"<User id={self.id} username='{self.username}'>"
@@ -375,6 +376,13 @@ class Channel:
     async def set_permissions(self, overwrite: PermissionOverwrite):
         return await self._http.edit_channel_permissions(self.id, overwrite)
 
+class VoiceStateInfo:
+    def __init__(self, data: dict):
+        self.channel_id: Optional[str] = data.get("channel_id")
+        self.self_deaf: bool = data.get("self_deaf", False)
+        self.self_mute: bool = data.get("self_mute", False)
+        self.server_deaf: bool = data.get("server_deaf", False)
+        self.server_mute: bool = data.get("server_mute", False)
 
 class Member:
     def __init__(self, data: dict, guild_id: str = None, http=None):
@@ -387,6 +395,8 @@ class Member:
         self.nick: Optional[str] = data.get("nick") or data.get("nickname")
         self.roles: List[str] = data.get("roles", [])
         self.joined_at: Optional[str] = data.get("joined_at")
+        voice_data = data.get("voice")
+        self.voice: Optional[VoiceStateInfo] = VoiceStateInfo(voice_data) if voice_data else None
 
     def __str__(self):
         return self.nick or str(self.user)
@@ -593,6 +603,9 @@ class Interaction:
         return await self._http.edit_interaction_response(
             self.application_id, self.token, content=content, embed=embed, embeds=embeds
         )
+
+    async def edit_original_message(self, content: str = None, *, embed: Embed = None, embeds: List[Embed] = None):
+        return await self.edit_original(content=content, embed=embed, embeds=embeds)
 
     async def followup(self, content: str = None, *, embed: Embed = None, embeds: List[Embed] = None,
                        ephemeral: bool = False):

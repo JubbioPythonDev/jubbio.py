@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Any
 
 from .http import HTTPClient
 from .gateway import Gateway
@@ -17,7 +17,8 @@ log = logging.getLogger(__name__)
 
 class Client:
 
-    def __init__(self, intents: Intents = None):
+    def __init__(self, application_id: str = None, intents: Intents = None):
+        self.application_id = str(application_id) if application_id else None
         self.intents = intents or Intents.default()
         self._http: Optional[HTTPClient] = None
         self._gateway: Optional[Gateway] = None
@@ -28,8 +29,8 @@ class Client:
         self._command_handlers: Dict[str, Callable] = {}
         self._component_handlers: Dict[str, Callable] = {}
         self.user: Optional[BotUser] = None
-        self.application_id: Optional[str] = None
         self.guilds: List[Guild] = []
+        self.voice_clients: Dict[str, Any] = {}
 
     def event(self, func: Callable) -> Callable:
         if not asyncio.iscoroutinefunction(func):
@@ -67,9 +68,26 @@ class Client:
             user_data = await self._http.request("GET", "/users/@me")
         except Exception:
             user_data = data.get("user", data.get("bot", {}))
-            
+
         self.user = BotUser(user_data)
-        self.application_id = getattr(self.user, "application_id", None)
+
+        if not self.user.username:
+            guilds = data.get("guilds", [])
+            if guilds:
+                guild_id = guilds[0].get("id") if isinstance(guilds[0], dict) else guilds[0]
+                try:
+                    member_data = await self._http.request("GET", f"/bot/guilds/{guild_id}/members/{self.user.id}")
+                    if member_data and member_data.get("username"):
+                        self.user.username = member_data.get("username")
+                        self.user.display_name = member_data.get("display_name", self.user.username)
+                except Exception:
+                    pass
+
+        if not self.application_id:
+            self.application_id = getattr(self.user, "application_id", None)
+            if not self.application_id:
+                self.application_id = str(data.get("application", {}).get("id", self.user.id))
+
         self.guilds = [Guild(g, http=self._http) for g in data.get("guilds", [])]
         self._ready.set()
 
@@ -108,6 +126,13 @@ class Client:
                 if event_name in self._event_handlers:
                     await self._event_handlers[event_name](Invite(data))
 
+            elif event_name == "on_voice_server_update":
+                log.debug("CLIENT _dispatch: on_voice_server_update çağrılıyor")
+                await self.on_voice_server_update(data)
+
+            elif event_name == "on_voice_state_update":
+                await self.on_voice_state_update(data)
+
             else:
                 if event_name in self._event_handlers:
                     await self._event_handlers[event_name](data)
@@ -124,7 +149,8 @@ class Client:
 
         try:
             self.user = await self._http.get_me()
-            self.application_id = self.user.application_id
+            if not self.application_id:
+                self.application_id = getattr(self.user, "application_id", self.user.id)
         except Exception as e:
             raise LoginFailure(f"Giriş başarısız: {e}") from e
 
@@ -172,14 +198,14 @@ class Client:
     async def get_invite(self, code: str) -> Invite:
         return await self._http.get_invite(code)
 
-    async def register_command(self, command: SlashCommand, guild_id: str = None):
+    async def register_command(self, command: SlashCommand, guild_id: str = None, **kwargs):
         if not self.application_id:
-            raise RuntimeError("Bot henüz hazır değil")
+            raise RuntimeError("Bot henüz hazır değil. (application_id bulunamadı)")
         if guild_id:
             return await self._http.register_guild_command(self.application_id, guild_id, command.to_dict())
         return await self._http.register_global_command(self.application_id, command.to_dict())
 
-    async def delete_command(self, command_id: str, guild_id: str = None):
+    async def delete_command(self, command_id: str, guild_id: str = None, **kwargs):
         if not self.application_id:
             raise RuntimeError("Bot henüz hazır değil")
         if guild_id:
@@ -187,9 +213,33 @@ class Client:
         else:
             await self._http.delete_global_command(self.application_id, command_id)
 
-    async def get_commands(self, guild_id: str = None) -> list:
+    async def get_commands(self, guild_id: str = None, **kwargs) -> list:
         if not self.application_id:
             raise RuntimeError("Bot henüz hazır değil")
         if guild_id:
             return await self._http.get_guild_commands(self.application_id, guild_id)
         return await self._http.get_global_commands(self.application_id)
+
+    async def get_command(self, command_id: str, guild_id: str = None, **kwargs) -> dict:
+        if not self.application_id:
+            raise RuntimeError("Bot henüz hazır değil")
+        if guild_id:
+            return await self._http.get_guild_command(self.application_id, guild_id, command_id)
+        return await self._http.get_global_command(self.application_id, command_id)
+
+    async def on_voice_state_update(self, data: dict):
+        pass
+
+    async def on_voice_server_update(self, data: dict):
+        guild_id = data.get("guild_id")
+        endpoint = data.get("endpoint")
+        token = data.get("token")
+
+        log.debug(f"CLIENT on_voice_server_update: guild_id={guild_id}, voice_clients_keys={list(self.voice_clients.keys())}")
+
+        if guild_id and guild_id in self.voice_clients:
+            vc = self.voice_clients[guild_id]
+            log.debug("CLIENT: voice_client bulundu, LiveKit task başlatılıyor.")
+            asyncio.create_task(vc._connect_livekit(endpoint, token))
+        else:
+            log.debug("CLIENT: voice_client bulunamadı veya guild_id yok.")

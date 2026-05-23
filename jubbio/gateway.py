@@ -74,15 +74,20 @@ class Gateway:
 
     async def _send(self, data: dict):
         if self._ws and not self._ws.closed:
+            log.debug("GATEWAY SEND: %s", data)
             await self._ws.send_json(data)
 
     async def _receive_loop(self):
         try:
             async for msg in self._ws:
-                if msg.type == aiohttp.WSMsgType.TEXT:
-                    await self._handle_message(json.loads(msg.data))
-                elif msg.type == aiohttp.WSMsgType.BINARY:
-                    await self._handle_message(json.loads(msg.data))
+                if msg.type in (aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.BINARY):
+                    data_str = msg.data.decode("utf-8") if isinstance(msg.data, bytes) else msg.data
+                    for line in data_str.strip().split('\n'):
+                        if not line.strip(): continue
+                        try:
+                            await self._handle_message(json.loads(line))
+                        except Exception as parse_e:
+                            log.error("JSON Parse hatası: %s", parse_e)
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     log.error("WebSocket hatası: %s", self._ws.exception())
                     break
@@ -98,6 +103,7 @@ class Gateway:
             await self._handle_close(close_code)
 
     async def _handle_message(self, data: dict):
+        log.debug("GATEWAY RECV: %s", data)
         op = data.get("op")
         event_type = data.get("t")
         event_data = data.get("d", {})
@@ -127,18 +133,20 @@ class Gateway:
             "PRESENCE_UPDATE": "on_presence_update",
             "GUILD_MEMBER_ADD": "on_member_join",
             "GUILD_MEMBER_REMOVE": "on_member_remove",
+            "VOICE_STATE_UPDATE": "on_voice_state_update",
+            "VOICE_SERVER_UPDATE": "on_voice_server_update",
         }
 
         if event_type == "READY":
             self._ready.set()
             self._reconnect_count = 0
             if hasattr(self._client, "_handle_ready"):
-                await self._client._handle_ready(data)
+                asyncio.create_task(self._client._handle_ready(data))
             return
 
         handler_name = event_map.get(event_type)
         if handler_name and hasattr(self._client, "_dispatch"):
-            await self._client._dispatch(handler_name, data)
+            asyncio.create_task(self._client._dispatch(handler_name, data))
 
     def _start_heartbeat(self, interval: float):
         if self._heartbeat_task and not self._heartbeat_task.done():
@@ -194,3 +202,15 @@ class Gateway:
 
     async def wait_until_ready(self):
         await self._ready.wait()
+
+    async def update_voice_state(self, guild_id: str, channel_id: str, self_mute: bool = False, self_deaf: bool = False):
+        payload = {
+            "op": 4,
+            "d": {
+                "guild_id": guild_id,
+                "channel_id": channel_id,
+                "self_mute": self_mute,
+                "self_deaf": self_deaf
+            }
+        }
+        await self._send(payload)
