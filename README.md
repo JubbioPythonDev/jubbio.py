@@ -1,25 +1,54 @@
-# jubbio.py
+<h1 align="center">jubbio.py</h1>
 
-Jubbio platformu için Python bot kütüphanesi. Discord.py benzeri bir API ile Jubbio botları oluşturmanızı sağlar.
+<p align="center">
+  <strong>Jubbio botları geliştirmek için modern, asenkron ve nesne yönelimli <ins>bağımsız (unofficial)</ins> Python kütüphanesi.</strong>
+</p>
 
-> **Not:** Bu kütüphane Jubbio'nun resmi bir ürünü değildir. Topluluk tarafından geliştirilmiş bağımsız bir projedir. API değişiklikleri nedeniyle bazı özellikler çalışmayabilir.
+<p align="center">
+  <b>⚠️ DİKKAT:</b> Bu proje topluluk tarafından geliştirilmiştir ve <b>Jubbio</b> geliştiricileri/sahipleri ile <u>hiçbir resmi bağlantısı yoktur</u>. Jubbio API'sini kullanmak için gayri-resmi bir köprü görevi görür.
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/jubbio.py/">
+    <img src="https://img.shields.io/pypi/v/jubbio.py?style=for-the-badge&logo=pypi&color=0073b7" alt="PyPI Version">
+  </a>
+  <img src="https://img.shields.io/badge/Python-3.9+-yellow?style=for-the-badge&logo=python&logoColor=white" alt="Python Versions">
+  <img src="https://img.shields.io/badge/asyncio-supported-success?style=for-the-badge" alt="Asyncio">
+  <img src="https://img.shields.io/badge/License-MIT-blueviolet?style=for-the-badge" alt="License">
+</p>
+
+<p align="center">
+  <a href="#-kurulum"><b>Kurulum</b></a> •
+  <a href="#-temel-özellikler"><b>Özellikler</b></a> •
+  <a href="#-hızlı-başlangıç"><b>Örnekler</b></a> •
+  <a href="#-api-referansı"><b>Dokümantasyon</b></a>
+</p>
+
+<hr>
+
+## Temel Özellikler
+
+* **Tamamen Asenkron:** `aiohttp` ve `asyncio` altyapısı ile "non-blocking" performans.
+* **Tanıdık ve Sezgisel:** `discord.py` benzeri, öğrenmesi kolay dekoratör (`@client.event`) tabanlı tasarım.
+* **Tam Donanımlı:** Slash komutları, embedler (zengin kartlar), butonlar (ActionRow) ve fazlası.
+* **Dayanıklı Gateway:** WebSockets üzerinden kopmalara karşı otomatik yeniden bağlanma ve rate-limit yönetimi.
+
+<br>
 
 ## Kurulum
 
-```bash
-pip install jubbio.py
-```
-
-Kaynak koddan:
+Paketi kurmanın en kolay yolu PyPI üzerinden `pip` kullanmaktır:
 
 ```bash
-git clone https://github.com/jubbio/jubbio.py
-cd jubbio.py
-pip install -e .
+pip install -U jubbio.py
 ```
+
+<br>
 
 ## Hızlı Başlangıç
 
+Basit bir ping-pong botu yazmak sadece birkaç satır sürer:
+
 ```python
 import jubbio
 
@@ -27,127 +56,82 @@ client = jubbio.Client()
 
 @client.event
 async def on_ready():
-    print(f'{client.user} olarak giriş yapıldı')
+    print(f'Sisteme giriş yapıldı: {client.user}')
 
 @client.event
 async def on_message(message):
+    # Kendi mesajlarımızı yoksayalım
+    if message.author.bot:
+        return
+
     if message.content == '!ping':
         await message.channel.send('Pong!')
 
-    elif message.content == '!merhaba':
-        await message.reply(f'Merhaba {message.author.mention}')
-
 client.run('BOT_TOKEN_BURAYA')
 ```
 
-## Slash Komutlar
+### Slash Komutları (Uygulama Komutları)
+
+Kullanıcıların `/bilgi` yazarak çağırabileceği modern komutlar oluşturabilirsiniz:
 
 ```python
-import jubbio
-
-client = jubbio.Client()
-
 @client.event
 async def on_ready():
+    # Komutu oluşturup sunucuya kaydedelim
     cmd = jubbio.SlashCommand(
-        name='bilgi',
-        description='Kullanıcı bilgilerini gösterir',
-        options=[
-            jubbio.SlashCommandOption(
-                name='kullanici',
-                description='Bilgileri gösterilecek kullanıcı',
-                type=jubbio.CommandOptionType.USER,
-                required=False
-            )
-        ]
+        name='profil',
+        description='Kullanıcı profilini görüntüler',
     )
     await client.register_command(cmd, guild_id='SUNUCU_ID')
 
-@client.command(name='bilgi')
-async def bilgi(interaction):
-    user = interaction.user
+@client.command(name='profil')
+async def profil_komutu(interaction):
     embed = jubbio.Embed(
-        title=user.display_name,
-        description='Kullanıcı bilgileri',
+        title=f"{interaction.user.display_name}",
         color=jubbio.Color.purple()
     )
-    embed.add_field(name='ID', value=user.id, inline=True)
-    embed.add_field(name='Kullanıcı Adı', value=user.username, inline=True)
+    embed.add_field(name='ID', value=interaction.user.id)
     await interaction.respond(embed=embed)
-
-client.run('BOT_TOKEN_BURAYA')
 ```
 
-## Embed ve Butonlar
+### Butonlar ve Etkileşimler (Components)
+
+Kullanıcıların tıklayabileceği interaktif butonlar gönderebilirsiniz:
 
 ```python
 @client.event
 async def on_message(message):
-    if message.content == '!menu':
-        embed = jubbio.Embed(
-            title='Oyun Menüsü',
-            description='Bir seçenek belirleyin:',
-            color=jubbio.Color.gold()
-        )
-
+    if message.content == '!onay':
+        embed = jubbio.Embed(description="Şartları kabul ediyor musunuz?", color=jubbio.Color.blue())
+        
         row = jubbio.ActionRow(
-            jubbio.Button(
-                style=jubbio.ButtonStyle.PRIMARY,
-                label='Başla',
-                custom_id='game_start'
-            ),
-            jubbio.Button(
-                style=jubbio.ButtonStyle.SECONDARY,
-                label='Kurallar',
-                custom_id='game_rules'
-            ),
-            jubbio.Button(
-                style=jubbio.ButtonStyle.LINK,
-                label='Web Sitesi',
-                url='https://jubbio.com'
-            )
+            jubbio.Button(style=jubbio.ButtonStyle.SUCCESS, label='Evet', custom_id='btn_yes'),
+            jubbio.Button(style=jubbio.ButtonStyle.DANGER, label='Hayır', custom_id='btn_no')
         )
-
         await message.channel.send(embed=embed, components=[row])
 
-@client.component(custom_id='game_start')
-async def game_start(interaction):
-    await interaction.respond('Oyun başlıyor!', ephemeral=True)
+@client.component(custom_id='btn_yes')
+async def onaylandi(interaction):
+    await interaction.respond('Teşekkürler, onaylandı!', ephemeral=True)
 ```
 
-## Özellikler
-
-- Async/await tabanlı (aiohttp)
-- Slash komut kayıt ve yönetimi
-- Buton, seçim menüsü ve action row desteği
-- Embed (zengin içerik kartı) desteği
-- Webhook oluşturma ve yönetimi
-- Ban, kick, timeout, rol yönetimi
-- WebSocket Gateway ile gerçek zamanlı olay dinleme
-- Otomatik yeniden bağlanma (exponential backoff)
-- Rate limit yönetimi
+<br>
 
 ## API Referansı
 
-### Client
-
-| Metot | Açıklama |
+### Client Ana Metotları
+| Metot | Ne İşe Yarar? |
 |-------|----------|
-| `client.run(token)` | Botu başlatır |
-| `client.close()` | Botu kapatır |
-| `client.get_user(id)` | Kullanıcı bilgisi getirir |
-| `client.get_guild(id)` | Sunucu bilgisi getirir |
-| `client.send_dm(user_id, content)` | DM gönderir |
-| `client.register_command(cmd)` | Slash komut kaydeder |
-| `client.wait_until_ready()` | Bot hazır olana kadar bekler |
+| `client.run(token)` | Botu gateway'e bağlar ve çalıştırır. |
+| `client.register_command(cmd)` | Sunucuya veya globale slash komut kaydeder. |
+| `client.send_dm(user_id, msg)` | Belirtilen kullanıcıya özel mesaj atar. |
 
-### Olaylar
-
+### Olaylar (Events)
 | Olay | Açıklama |
 |------|----------|
 | `on_ready` | Bot hazır olduğunda |
 | `on_message(message)` | Yeni mesaj geldiğinde |
-| `on_interaction(interaction)` | Etkileşim olduğunda |
+| `on_interaction(interaction)` | Etkileşim olduğunda (Buton, Komut vb.) |
 | `on_guild_join(guild)` | Yeni sunucuya katılınca |
 | `on_guild_remove(guild)` | Sunucudan ayrılınca |
 | `on_member_ban(member)` | Üye yasaklanınca |
@@ -157,10 +141,10 @@ async def game_start(interaction):
 | `on_invite_create(invite)` | Davet oluşturulunca |
 | `on_presence_update(data)` | Durum güncellenince |
 
-## Lisans
+<br>
 
-MIT License
+---
 
-## Feragat
-
-Bu kütüphane Jubbio ile resmi bir bağlantısı olmayan, topluluk tarafından geliştirilmiş bağımsız bir projedir. Jubbio'nun API'si üzerinde herhangi bir garanti verilmez. Kullanım riski size aittir.
+<p align="center">
+  <i>Bu kütüphane bağımsız geliştiriciler tarafından oluşturulmuştur ve Jubbio Inc. ile doğrudan bağlantısı yoktur.</i>
+</p>
